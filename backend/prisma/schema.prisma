@@ -1,0 +1,383 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============ AUTH & USERS ============
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique @db.VarChar(255)
+  passwordHash String    @map("password_hash") @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(100)
+  phone        String?   @db.VarChar(20)
+  role         UserRole  @default(STAFF)
+  isActive     Boolean   @default(true) @map("is_active")
+  avatarUrl    String?   @map("avatar_url") @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  trainer       Trainer?
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+
+  @@map("users")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  STAFF
+  TRAINER
+}
+
+model RefreshToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique @db.VarChar(512)
+  userId    Int      @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ============ MEMBERS ============
+
+model Member {
+  id               Int            @id @default(autoincrement())
+  memberCode       String         @unique @map("member_code") @db.VarChar(20)
+  fullName         String         @map("full_name") @db.VarChar(100)
+  email            String?        @unique @db.VarChar(255)
+  phone            String         @db.VarChar(20)
+  dateOfBirth      DateTime?      @map("date_of_birth") @db.Date
+  gender           Gender?
+  address          String?        @db.Text
+  avatarUrl        String?        @map("avatar_url") @db.Text
+  emergencyContact String?        @map("emergency_contact") @db.VarChar(100)
+  healthNote       String?        @map("health_note") @db.Text
+  qrCode           String?        @map("qr_code") @db.VarChar(255)
+  isActive         Boolean        @default(true) @map("is_active")
+  joinedAt         DateTime       @default(now()) @map("joined_at")
+  createdAt        DateTime       @default(now()) @map("created_at")
+  updatedAt        DateTime       @updatedAt @map("updated_at")
+
+  memberships   Membership[]
+  checkIns      CheckIn[]
+  classBookings ClassBooking[]
+  ptSessions    PtSession[]    @relation("MemberPtSessions")
+  payments      Payment[]
+
+  @@map("members")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+// ============ MEMBERSHIP PLANS & PACKAGES ============
+
+model MembershipPlan {
+  id           Int          @id @default(autoincrement())
+  name         String       @db.VarChar(100)
+  description  String?      @db.Text
+  durationDays Int          @map("duration_days")
+  price        Decimal      @db.Decimal(12, 2)
+  features     Json?
+  isActive     Boolean      @default(true) @map("is_active")
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  memberships  Membership[]
+
+  @@map("membership_plans")
+}
+
+model Membership {
+  id        Int              @id @default(autoincrement())
+  memberId  Int              @map("member_id")
+  planId    Int              @map("plan_id")
+  startDate DateTime         @map("start_date") @db.Date
+  endDate   DateTime         @map("end_date") @db.Date
+  status    MembershipStatus @default(ACTIVE)
+  price     Decimal          @db.Decimal(12, 2)
+  note      String?          @db.Text
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  member   Member         @relation(fields: [memberId], references: [id])
+  plan     MembershipPlan @relation(fields: [planId], references: [id])
+  payments Payment[]
+
+  @@map("memberships")
+}
+
+enum MembershipStatus {
+  ACTIVE
+  EXPIRED
+  SUSPENDED
+  CANCELLED
+}
+
+// ============ CHECK-IN ============
+
+model CheckIn {
+  id         Int           @id @default(autoincrement())
+  memberId   Int           @map("member_id")
+  checkinAt  DateTime      @default(now()) @map("checkin_at")
+  checkoutAt DateTime?     @map("checkout_at")
+  method     CheckInMethod @default(QR)
+  note       String?       @db.Text
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId])
+  @@index([checkinAt])
+  @@map("check_ins")
+}
+
+enum CheckInMethod {
+  QR
+  CARD
+  MANUAL
+}
+
+// ============ TRAINERS ============
+
+model Trainer {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique @map("user_id")
+  specialization String?   @db.VarChar(200)
+  bio            String?   @db.Text
+  certifications Json?
+  hourlyRate     Decimal?  @map("hourly_rate") @db.Decimal(10, 2)
+  isAvailable    Boolean   @default(true) @map("is_available")
+  createdAt      DateTime  @default(now()) @map("created_at")
+
+  user       User        @relation(fields: [userId], references: [id])
+  classes    GymClass[]
+  ptSessions PtSession[]
+
+  @@map("trainers")
+}
+
+// ============ CLASSES & SCHEDULE ============
+
+model GymClass {
+  id          Int        @id @default(autoincrement())
+  name        String     @db.VarChar(100)
+  description String?    @db.Text
+  trainerId   Int?       @map("trainer_id")
+  capacity    Int        @default(20)
+  durationMin Int        @map("duration_min") @default(60)
+  level       ClassLevel @default(ALL)
+  location    String?    @db.VarChar(100)
+  isActive    Boolean    @default(true) @map("is_active")
+  imageUrl    String?    @map("image_url") @db.Text
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  trainer   Trainer?        @relation(fields: [trainerId], references: [id])
+  schedules ClassSchedule[]
+
+  @@map("gym_classes")
+}
+
+enum ClassLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL
+}
+
+model ClassSchedule {
+  id           Int            @id @default(autoincrement())
+  classId      Int            @map("class_id")
+  startAt      DateTime       @map("start_at")
+  endAt        DateTime       @map("end_at")
+  status       ScheduleStatus @default(SCHEDULED)
+  currentCount Int            @default(0) @map("current_count")
+  note         String?        @db.Text
+
+  gymClass GymClass       @relation(fields: [classId], references: [id])
+  bookings ClassBooking[]
+
+  @@index([startAt])
+  @@map("class_schedules")
+}
+
+enum ScheduleStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model ClassBooking {
+  id         Int           @id @default(autoincrement())
+  scheduleId Int           @map("schedule_id")
+  memberId   Int           @map("member_id")
+  status     BookingStatus @default(CONFIRMED)
+  bookedAt   DateTime      @default(now()) @map("booked_at")
+  attendedAt DateTime?     @map("attended_at")
+
+  schedule ClassSchedule @relation(fields: [scheduleId], references: [id])
+  member   Member        @relation(fields: [memberId], references: [id])
+
+  @@unique([scheduleId, memberId])
+  @@map("class_bookings")
+}
+
+enum BookingStatus {
+  CONFIRMED
+  CANCELLED
+  ATTENDED
+  NO_SHOW
+}
+
+// ============ PERSONAL TRAINING ============
+
+model PtSession {
+  id          Int      @id @default(autoincrement())
+  memberId    Int      @map("member_id")
+  trainerId   Int      @map("trainer_id")
+  scheduledAt DateTime @map("scheduled_at")
+  durationMin Int      @map("duration_min") @default(60)
+  status      PtStatus @default(SCHEDULED)
+  note        String?  @db.Text
+  price       Decimal? @db.Decimal(10, 2)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  member  Member   @relation("MemberPtSessions", fields: [memberId], references: [id])
+  trainer Trainer  @relation(fields: [trainerId], references: [id])
+  payment Payment?
+
+  @@map("pt_sessions")
+}
+
+enum PtStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============ PAYMENTS ============
+
+model Payment {
+  id            Int           @id @default(autoincrement())
+  memberId      Int           @map("member_id")
+  membershipId  Int?          @map("membership_id")
+  ptSessionId   Int?          @unique @map("pt_session_id")
+  amount        Decimal       @db.Decimal(12, 2)
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  referenceCode String?       @map("reference_code") @db.VarChar(100)
+  paidAt        DateTime?     @map("paid_at")
+  note          String?       @db.Text
+  createdAt     DateTime      @default(now()) @map("created_at")
+
+  member     Member      @relation(fields: [memberId], references: [id])
+  membership Membership? @relation(fields: [membershipId], references: [id])
+  ptSession  PtSession?  @relation(fields: [ptSessionId], references: [id])
+
+  @@index([memberId])
+  @@index([createdAt])
+  @@map("payments")
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  VNPAY
+  MOMO
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// ============ EQUIPMENT ============
+
+model Equipment {
+  id                Int             @id @default(autoincrement())
+  name              String          @db.VarChar(100)
+  category          String          @db.VarChar(50)
+  serialNumber      String?         @unique @map("serial_number") @db.VarChar(100)
+  purchaseDate      DateTime?       @map("purchase_date") @db.Date
+  purchasePrice     Decimal?        @map("purchase_price") @db.Decimal(12, 2)
+  status            EquipmentStatus @default(ACTIVE)
+  location          String?         @db.VarChar(100)
+  lastMaintenedAt   DateTime?       @map("last_maintained_at")
+  nextMaintenanceAt DateTime?       @map("next_maintenance_at")
+  note              String?         @db.Text
+  createdAt         DateTime        @default(now()) @map("created_at")
+
+  maintenanceLogs MaintenanceLog[]
+
+  @@map("equipment")
+}
+
+enum EquipmentStatus {
+  ACTIVE
+  MAINTENANCE
+  BROKEN
+  DISPOSED
+}
+
+model MaintenanceLog {
+  id           Int       @id @default(autoincrement())
+  equipmentId  Int       @map("equipment_id")
+  description  String    @db.Text
+  cost         Decimal?  @db.Decimal(10, 2)
+  maintainedAt DateTime  @map("maintained_at")
+  maintainedBy String?   @map("maintained_by") @db.VarChar(100)
+  nextDueAt    DateTime? @map("next_due_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  equipment Equipment @relation(fields: [equipmentId], references: [id])
+
+  @@map("maintenance_logs")
+}
+
+// ============ NOTIFICATIONS & AUDIT ============
+
+model Notification {
+  id       Int      @id @default(autoincrement())
+  title    String   @db.VarChar(200)
+  body     String   @db.Text
+  type     String   @db.VarChar(50)
+  targetId Int?     @map("target_id")
+  isRead   Boolean  @default(false) @map("is_read")
+  sentAt   DateTime @default(now()) @map("sent_at")
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  action    String   @db.VarChar(100)
+  tableName String   @map("table_name") @db.VarChar(50)
+  recordId  Int?     @map("record_id")
+  oldValues Json?    @map("old_values")
+  newValues Json?    @map("new_values")
+  ipAddress String?  @map("ip_address") @db.VarChar(45)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([tableName, recordId])
+  @@map("audit_logs")
+}

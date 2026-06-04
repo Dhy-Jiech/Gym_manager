@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    restart: always
+    environment:
+      MYSQL_DATABASE: gym_manager
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_USER: gym_user
+      MYSQL_PASSWORD: gym_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=mysql://gym_user:gym_password@db:3306/gym_manager
+      - JWT_ACCESS_SECRET=super_secret_access_token_12345
+      - JWT_REFRESH_SECRET=super_secret_refresh_token_67890
+    depends_on:
+      - db
+    # Command will wait for DB to be ready, migrate and start Next.js
+    command: >
+      sh -c "npx prisma migrate deploy && npm run start"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - VITE_API_URL=http://localhost:3000/api
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  db_data:

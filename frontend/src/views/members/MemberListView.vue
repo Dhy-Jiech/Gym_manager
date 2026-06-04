@@ -106,6 +106,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { membersApi } from '@/api/endpoints'
+import api from '@/composables/useApi'
 import PageHeader from '@/components/common/PageHeader.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import { ElMessageBox, ElMessage } from 'element-plus'
@@ -159,9 +160,20 @@ const handleDelete = async (id) => {
   }
 }
 
-const handleCheckin = (row) => {
-  // redirect or open modal
-  ElMessage.info(`Gửi yêu cầu check-in thủ công cho ${row.fullName}`)
+const handleCheckin = async (row) => {
+  if (!row.qrCode) {
+    ElMessage.warning('Hội viên này chưa có mã QR, vui lòng vào trang chi tiết để xem.')
+    return
+  }
+  try {
+    const res = await api.post('/checkin/qr', { qrCode: row.qrCode })
+    const d = res.data.data
+    const action = d.action === 'checkin' ? 'Check-in' : 'Check-out'
+    ElMessage.success(`${action} thành công cho ${row.fullName}`)
+  } catch (err) {
+    const msg = err.response?.data?.message || 'Check-in thất bại'
+    ElMessage.error(msg)
+  }
 }
 
 watch([page, limit], () => {

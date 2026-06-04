@@ -2,9 +2,9 @@
   <div class="space-y-6 max-w-4xl mx-auto">
     <PageHeader 
       :title="isEdit ? 'Chỉnh Sửa Hội Viên' : 'Thêm Hội Viên Mới'" 
-      @action="goBack"
       actionText="Quay lại"
       actionIcon="ArrowLeft"
+      @action="goBack"
     />
 
     <div class="card" v-loading="loading">
@@ -28,30 +28,32 @@
               <el-option label="Khác" value="OTHER" />
             </el-select>
           </el-form-item>
-          <el-form-item label="Ngày sinh" prop="dob">
-            <el-date-picker v-model="form.dob" type="date" placeholder="Chọn ngày" class="!w-full" format="DD/MM/YYYY" value-format="YYYY-MM-DD" />
+          <el-form-item label="Ngày sinh" prop="dateOfBirth">
+            <el-date-picker v-model="form.dateOfBirth" type="date" placeholder="Chọn ngày" class="!w-full" format="DD/MM/YYYY" value-format="YYYY-MM-DD" />
+          </el-form-item>
+          <el-form-item label="Địa chỉ" prop="address">
+            <el-input v-model="form.address" placeholder="Địa chỉ..." />
           </el-form-item>
         </div>
 
-        <h3 class="font-semibold text-lg border-b pb-2 mb-4 mt-6 dark:border-gray-800">Thể chất & Ghi chú</h3>
+        <h3 class="font-semibold text-lg border-b pb-2 mb-4 mt-6 dark:border-gray-800">Sức khoẻ & Khẩn cấp</h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6">
-          <el-form-item label="Chiều cao (cm)" prop="height">
-            <el-input-number v-model="form.height" :min="100" :max="250" class="!w-full" controls-position="right" />
+          <el-form-item label="Liên hệ khẩn cấp" prop="emergencyContact">
+            <el-input v-model="form.emergencyContact" placeholder="Người thân / SĐT..." />
           </el-form-item>
-          <el-form-item label="Cân nặng (kg)" prop="weight">
-            <el-input-number v-model="form.weight" :min="30" :max="200" class="!w-full" controls-position="right" />
+          <el-form-item label="Ghi chú sức khoẻ" prop="healthNote" class="md:col-span-2">
+            <el-input v-model="form.healthNote" type="textarea" :rows="3" placeholder="Bệnh lý, dị ứng..." />
           </el-form-item>
-          <el-form-item label="Ghi chú bệnh lý / Khác" prop="notes" class="md:col-span-2">
-            <el-input v-model="form.notes" type="textarea" :rows="3" placeholder="Nhập ghi chú nếu có" />
-          </el-form-item>
-          <el-form-item label="Trạng thái" prop="isActive" class="md:col-span-2" v-if="isEdit">
+          <el-form-item label="Trạng thái" prop="isActive" v-if="isEdit">
             <el-switch v-model="form.isActive" active-text="Hoạt động" inactive-text="Tạm ngưng" />
           </el-form-item>
         </div>
 
         <div class="flex justify-end gap-3 mt-8 pt-4 border-t dark:border-gray-800">
           <el-button @click="goBack">Huỷ</el-button>
-          <el-button type="primary" @click="submitForm" :loading="submitting">Lưu Lại</el-button>
+          <el-button type="primary" @click="submitForm" :loading="submitting">
+            {{ isEdit ? 'Cập nhật' : 'Thêm mới' }}
+          </el-button>
         </div>
       </el-form>
     </div>
@@ -78,10 +80,10 @@ const form = reactive({
   phone: '',
   email: '',
   gender: 'MALE',
-  dob: null,
-  height: null,
-  weight: null,
-  notes: '',
+  dateOfBirth: null,
+  address: '',
+  emergencyContact: '',
+  healthNote: '',
   isActive: true,
 })
 
@@ -100,12 +102,12 @@ const fetchMember = async () => {
     Object.assign(form, {
       fullName: data.fullName,
       phone: data.phone,
-      email: data.email,
-      gender: data.gender,
-      dob: data.dob ? data.dob.split('T')[0] : null,
-      height: data.height,
-      weight: data.weight,
-      notes: data.notes,
+      email: data.email || '',
+      gender: data.gender || 'MALE',
+      dateOfBirth: data.dateOfBirth ? data.dateOfBirth.split('T')[0] : null,
+      address: data.address || '',
+      emergencyContact: data.emergencyContact || '',
+      healthNote: data.healthNote || '',
       isActive: data.isActive,
     })
   } catch (err) {
@@ -130,8 +132,7 @@ const submitForm = async () => {
         }
         goBack()
       } catch (err) {
-        console.error(err)
-        // Error intercepted
+        // handled by axios interceptor
       } finally {
         submitting.value = false
       }

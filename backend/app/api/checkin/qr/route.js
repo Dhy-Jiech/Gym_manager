@@ -11,7 +11,16 @@ export async function POST(request) {
     const { qrCode } = await request.json()
     if (!qrCode) return errorResponse('QR code bắt buộc', 'MISSING_QR', 400)
 
-    const member = await prisma.member.findFirst({ where: { qrCode, isActive: true } })
+    // Support lookup by qrCode OR memberCode (for manual entry)
+    const member = await prisma.member.findFirst({
+      where: {
+        isActive: true,
+        OR: [
+          { qrCode },
+          { memberCode: qrCode.toUpperCase() },
+        ],
+      },
+    })
     if (!member) return errorResponse('QR code không hợp lệ hoặc hội viên không tồn tại', 'INVALID_QR', 404)
 
     // Check active membership

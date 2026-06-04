@@ -10,7 +10,7 @@
       
       <el-form ref="formRef" :model="form" label-width="150px" label-position="left">
         <el-form-item label="Mật khẩu cũ" required>
-          <el-input v-model="form.oldPassword" type="password" show-password class="max-w-sm" />
+          <el-input v-model="form.currentPassword" type="password" show-password class="max-w-sm" />
         </el-form-item>
         <el-form-item label="Mật khẩu mới" required>
           <el-input v-model="form.newPassword" type="password" show-password class="max-w-sm" />
@@ -29,16 +29,16 @@ import PageHeader from '@/components/common/PageHeader.vue'
 import { authApi } from '@/api/endpoints'
 import { ElMessage } from 'element-plus'
 
-const form = reactive({ oldPassword: '', newPassword: '' })
+const form = reactive({ currentPassword: '', newPassword: '' })
 const loading = ref(false)
 
 const changePw = async () => {
-  if (!form.oldPassword || !form.newPassword) return
+  if (!form.currentPassword || !form.newPassword) return
   loading.value = true
   try {
     await authApi.changePassword(form)
     ElMessage.success('Đổi mật khẩu thành công')
-    form.oldPassword = ''
+    form.currentPassword = ''
     form.newPassword = ''
   } catch (err) {
   } finally {

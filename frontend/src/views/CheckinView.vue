@@ -120,10 +120,12 @@ const handleCheckin = async () => {
   
   try {
     const res = await checkinApi.checkinQr(code)
+    const d = res.data.data
     lastResult.value = {
       success: true,
-      type: res.data.data.type, // CHECKIN or CHECKOUT
-      member: res.data.data.member,
+      // backend returns action: 'checkin' | 'checkout'
+      type: d.action === 'checkin' ? 'CHECKIN' : 'CHECKOUT',
+      member: d.member,
       message: res.data.message
     }
     ElMessage.success(res.data.message)
